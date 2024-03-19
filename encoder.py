@@ -14,11 +14,11 @@ from collections import OrderedDict
 
 class Encoder(torch.nn.Module):
     
-    def __init__(self):
+    def __init__(self, lidar_channel, map_channel):
         super(Encoder, self).__init__()
         
-        self.lidar = LiDAR()
-        self.map = Map()
+        self.lidar = LiDAR(lidar_channel)
+        self.map = Map(map_channel)
         
         self.bottleneck_block1 = nn.Sequential(
             BottleNeck(in_channel=96, out_channel=128, hidden_channel=32, stride=2),
@@ -108,10 +108,10 @@ class Encoder(torch.nn.Module):
         
         
 class LiDAR(torch.nn.Module):    
-    def __init__(self):
+    def __init__(self, in_channel):
         super(LiDAR, self).__init__()
         
-        self.conv1 = torch.nn.Conv2d(160, 32, kernel_size=3, stride=1, padding=1)
+        self.conv1 = torch.nn.Conv2d(in_channel, 32, kernel_size=3, stride=1, padding=1)
         self.batchnorm = torch.nn.BatchNorm2d(32)
         self.relu = torch.nn.ReLU()
         self.conv2 = torch.nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1)
@@ -132,10 +132,10 @@ class LiDAR(torch.nn.Module):
 
 class Map(torch.nn.Module):
     
-    def __init__(self):
+    def __init__(self, in_channel):
         super(Map, self).__init__()
         
-        self.conv1 = torch.nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1)
+        self.conv1 = torch.nn.Conv2d(in_channel, 64, kernel_size=3, stride=1, padding=1)
         self.batchnorm = torch.nn.BatchNorm2d(64)
         self.relu = torch.nn.ReLU()
         self.conv2 = torch.nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
@@ -194,12 +194,13 @@ class BottleNeck(torch.nn.Module):
 
 if __name__ == '__main__':
     # some quick tests for the SPP module
-    C = 10
-    x_lidar = torch.randn((2,160, 256, 256))
-    x_map = torch.randn(2,1,256,256)
+    c_lidar = 160
+    c_map = 3
+    x_lidar = torch.randn(2,c_lidar, 100, 100)
+    x_map = torch.randn(2,c_map,100,100)
+
     
-    
-    ENCODER = Encoder()
+    ENCODER = Encoder(c_lidar, c_map)
     print(ENCODER(x_lidar, x_map).size())
     
     
