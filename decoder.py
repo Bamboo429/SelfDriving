@@ -11,17 +11,54 @@ import torch
 import torch.nn as nn
  
 class Decoder(nn.Module):
-    def __init__(self, in_channel, h1, h2, h3, attn_embed_dim, attn_num_heads):
+    
+    def __init__(self, in_channel, h1, h2, h3, h4, attn_embed_dim, attn_num_heads):
         super(Decoder, self).__init__()
         self.offset = OffsetPrediction(in_channel, h1)
         self.feature = FeatureAggregation(h2, h3, attn_embed_dim, attn_num_heads)
+        self.occupancy = OccupancyFlow(in_channel, h3, h4)
+        
     def forward(self, Z, Q):
         
         q_z, r = self.offset(Z, Q)
         z = self.feature(Z, Q, q_z, r)
+        O, F = self.occupancy(Q, z)
         
-        return z
+        return O, F
+ 
+class OccupancyFlow(nn.Module):
+    
+    def __init__(self, in_channel, h3, h4):
+        super(OccupancyFlow, self).__init__()
+        self.linear1 = nn.Linear(in_channel+h3, h4)
+        self.linear2 = nn.Linear(3, h4)
+        self.reslayer = ResidualLayer(h4)
         
+        self.relu = nn.ReLU()
+        self.linear3 = nn.Linear(h4, 1)
+        self.linear4 = nn.Linear(h4, 2)
+        
+        
+    def forward(self, Q, z):
+        
+        # fc
+        z = self.linear1(z)
+        q = self.linear2(Q)
+        of = torch.add(z,q)
+        
+        # repeat
+        for _ in range(3):
+            of = self.reslayer(of)
+        
+        of = self.relu(of)
+        
+        O = self.linear3(of)
+        F = self.linear4(of)
+        
+        return O, F
+        
+        
+           
 class FeatureAggregation(nn.Module):
     def __init__(self, h2, h3, attn_embed_dim, attn_num_heads):
         super(FeatureAggregation, self).__init__()
@@ -59,6 +96,7 @@ class FeatureAggregation(nn.Module):
         return z
         
 class OffsetPrediction(nn.Module):
+    
     def __init__(self, in_channel, hidden_channel=16, K=2):
         super(OffsetPrediction, self).__init__()
         self.K = K
@@ -100,6 +138,7 @@ class OffsetPrediction(nn.Module):
         return Qxy, r
  
 class ResidualLayer(nn.Module):
+    
     def __init__(self, hidden_channel):
         super(ResidualLayer, self).__init__()
         
@@ -145,7 +184,7 @@ def bilinear_interpolation_3d(Z, x, y):
 
 
 if __name__ == '__main__':
-    # some quick tests for the SPP module
+    
     c_lidar = 160
     c_map = 8
     Q = torch.randn(10,3)
@@ -154,23 +193,6 @@ if __name__ == '__main__':
     h1 = 16
     h2 = 8
     h3 = c_map+h2
-    model = Decoder(c_map, h1, h2, h3, h3, 4)
+    h4 = 16
+    model = Decoder(c_map, h1, h2, h3, h4, h3, 4)
     print(model(Z, Q).size())
-    
-'''    
-# Example usage
-# Assuming Z is your 3D feature map represented as a numpy array
-# Shape of Z: (height, width, depth)
-Z = torch.randn(3,100,100)  # Example feature map with height=3, width=3, depth=2
-
-Q = torch.tensor([[0.5,8.8,1.5],[1.5,2.2,1]])
-qx = Q[:,0]
-qy = Q[:,1]
-# Assuming your query point qx, qy is (0.5, 1.5)
-#qx = np.asarray([0.5, 8.8])
-#qy = np.asarray([1.5, 22.1])
-
-# Perform bilinear interpolation
-interpolated_values = bilinear_interpolation_3d(Z, qx, qy)
-print("Interpolated values at query point ({}, {}) are: {}".format(qx, qy, interpolated_values))
-'''
