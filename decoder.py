@@ -160,7 +160,7 @@ class ResidualLayer(nn.Module):
                
 def bilinear_interpolation_3d(Z, x, y):
     
-    c = Z.size()[0]
+    c,_,_ = Z.size()
     # Extract grid points
     x1 = x.int()
     y1 = y.int()
@@ -184,7 +184,7 @@ def bilinear_interpolation_3d(Z, x, y):
     # Perform linear interpolation along y-axis
     interpolated_values = R1 * (1 - dy) + R2 * dy
     interpolated_values = torch.reshape(interpolated_values, (-1,c))
-    print('interpolated_values:', interpolated_values.size())
+    #print('interpolated_values:', interpolated_values.size())
     return interpolated_values
 
 
@@ -193,14 +193,15 @@ if __name__ == '__main__':
     
     c_lidar = 160
     c_map = 8
-    Q = torch.randn(10,3)
-    Z = torch.randn(c_map,100,100)
+    b = 2
+    Q = torch.randn( 10,3)
+    Z = torch.randn( 64,100,100)
 
     h1 = 16
     h2 = 8
-    h3 = c_map+h2
+    h3 = 64+h2
     h4 = 16
-    model = Decoder(c_map, h1, h2, h3, h4, 4)
+    model = Decoder(64, h1, h2, h3, h4, 4)
     occupancy, flow = model(Z,Q) 
     print('occupancy:', occupancy.size())
     print('flow:', flow.size())
