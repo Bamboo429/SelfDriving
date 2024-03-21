@@ -12,11 +12,11 @@ import torch.nn as nn
  
 class Decoder(nn.Module):
     
-    def __init__(self, in_channel, h1, h2, h3, h4, attn_embed_dim, attn_num_heads):
+    def __init__(self, in_channel, h1, h2, h3, h4, attn_num_heads):
         
         super(Decoder, self).__init__()
         self.offset = OffsetPrediction(in_channel, h1)
-        self.feature = FeatureAggregation(h2, h3, attn_embed_dim, attn_num_heads)
+        self.feature = FeatureAggregation(h2, h3, h3, attn_num_heads)
         self.occupancy = OccupancyFlow(in_channel, h3, h4)
         
     def forward(self, Z, Q):
@@ -200,5 +200,7 @@ if __name__ == '__main__':
     h2 = 8
     h3 = c_map+h2
     h4 = 16
-    model = Decoder(c_map, h1, h2, h3, h4, h3, 4)
-    print(model(Z, Q).size())
+    model = Decoder(c_map, h1, h2, h3, h4, 4)
+    occupancy, flow = model(Z,Q) 
+    print('occupancy:', occupancy.size())
+    print('flow:', flow.size())
