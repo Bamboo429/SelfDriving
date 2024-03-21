@@ -13,6 +13,7 @@ import torch.nn as nn
 class Decoder(nn.Module):
     
     def __init__(self, in_channel, h1, h2, h3, h4, attn_embed_dim, attn_num_heads):
+        
         super(Decoder, self).__init__()
         self.offset = OffsetPrediction(in_channel, h1)
         self.feature = FeatureAggregation(h2, h3, attn_embed_dim, attn_num_heads)
@@ -29,6 +30,7 @@ class Decoder(nn.Module):
 class OccupancyFlow(nn.Module):
     
     def __init__(self, in_channel, h3, h4):
+        
         super(OccupancyFlow, self).__init__()
         self.linear1 = nn.Linear(in_channel+h3, h4)
         self.linear2 = nn.Linear(3, h4)
@@ -52,6 +54,7 @@ class OccupancyFlow(nn.Module):
         
         of = self.relu(of)
         
+        # output for occupancy and flow
         O = self.linear3(of)
         F = self.linear4(of)
         
@@ -60,6 +63,7 @@ class OccupancyFlow(nn.Module):
         
            
 class FeatureAggregation(nn.Module):
+    
     def __init__(self, h2, h3, attn_embed_dim, attn_num_heads):
         super(FeatureAggregation, self).__init__()
         self.linear1 = nn.Linear(2, h2)
@@ -98,6 +102,7 @@ class FeatureAggregation(nn.Module):
 class OffsetPrediction(nn.Module):
     
     def __init__(self, in_channel, hidden_channel=16, K=2):
+        
         super(OffsetPrediction, self).__init__()
         self.K = K
         
@@ -140,6 +145,7 @@ class OffsetPrediction(nn.Module):
 class ResidualLayer(nn.Module):
     
     def __init__(self, hidden_channel):
+        
         super(ResidualLayer, self).__init__()
         
         self.linear1 = nn.Linear(hidden_channel, hidden_channel)

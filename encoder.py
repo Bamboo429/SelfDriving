@@ -58,8 +58,11 @@ class Encoder(torch.nn.Module):
             BottleNeck(in_channel=512, out_channel=512, hidden_channel=128, stride=1)
             )
         
-        fpn_batchnorm = torch.nn.BatchNorm2d(32)
-        self.fpn = torchvision.ops.FeaturePyramidNetwork([128, 192, 256, 384, 512], 32)
+        
+        self.fpn = torchvision.ops.FeaturePyramidNetwork(
+            in_channels_list=[128, 192, 256, 384, 512], 
+            out_channels=32,
+            norm_layer=nn.BatchNorm2d)
         
         self.pooling = SpatialPyramidPooling(in_channels=32, concat_mode=1)
         
