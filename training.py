@@ -19,7 +19,7 @@ from decoder import Decoder
 
 
 def train(train_dataloader, encoder, decoder, n_epochs=20, learning_rate=0.001,
-               print_every=100, plot_every=100):
+               print_every=2, plot_every=100):
     
     start = time.time()
     plot_losses = []
@@ -78,7 +78,7 @@ def train_epoch(dataloader, encoder, decoder, encoder_optimizer,
                 O_output = torch.cat((O_output, o), dim=0)
                 F_output = torch.cat((F_output, f), dim=0)
         
-        print('O_output:', O_output.size())
+        #print('O_output:', O_output.size())
             
 
         occupancy_loss_fn, flow_loss_fn, lamda = loss_fn
@@ -110,7 +110,7 @@ class RandomDataset(Dataset):
     def __init__(self):
         pass
     def __len__(self):
-        return 10
+        return 10000
 
     def __getitem__(self, idx):
         
@@ -131,7 +131,7 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     training_data = RandomDataset()
-    train_dataloader = DataLoader(training_data, batch_size=5, shuffle=True)
+    train_dataloader = DataLoader(training_data, batch_size=100, shuffle=True)
     
     c_lidar = 160
     c_map = 8
