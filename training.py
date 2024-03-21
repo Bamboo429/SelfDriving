@@ -107,43 +107,50 @@ def occupancyflow_loss():
 
 
 class RandomDataset(Dataset):
-    def __init__(self):
-        pass
+    def __init__(self, c_lidar, c_map, q_size, H, W):
+        self.c_lidar = c_lidar
+        self.c_map = c_map
+        self.q_size = q_size
+        self.H = H
+        self.W = W
+        
     def __len__(self):
         return 10000
 
     def __getitem__(self, idx):
         
-        c_lidar = 160
-        c_map = 8
-        q_size = 10
-        L = torch.randn(c_lidar, 100, 100)
-        M = torch.randn(c_map,100,100)
-        Q = torch.randn(q_size,3)
-        O = torch.randn(q_size,1)
-        F = torch.randn(q_size,2)
+        
+        L = torch.randn(self.c_lidar, self.H, self.W)
+        M = torch.randn(self.c_map, self.H, self.W)
+        Q = torch.randn(self.q_size,3)
+        O = torch.randn(self.q_size,1)
+        F = torch.randn(self.q_size,2)
         
         return L, M, Q, O, F
  
     
  
 if __name__ == '__main__':
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
     
-    training_data = RandomDataset()
-    train_dataloader = DataLoader(training_data, batch_size=100, shuffle=True)
-    
-    c_lidar = 160
-    c_map = 8
+    c_lidar = 500
+    c_map = 3
     q_size = 10
-    c_z = 64
+    H = 400
+    W = 100
+    attn_num_heads = 4
+    
+    training_data = RandomDataset(c_lidar, c_map, q_size, H, W)
+    train_dataloader = DataLoader(training_data, batch_size=2, shuffle=True)
+    
+    
     
     h1 = 16
     h2 = 8
-    h3 = c_z+h2
+    h3 = 64+h2
     h4 = 16
     
     encoder = Encoder(c_lidar, c_map).to(device)
-    decoder = Decoder(c_z, h1, h2, h3, h4, 4).to(device)
+    decoder = Decoder(64, h1, h2, h3, h4, attn_num_heads).to(device)
     
     train(train_dataloader, encoder, decoder, 80, print_every=5, plot_every=5)
