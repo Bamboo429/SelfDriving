@@ -68,7 +68,8 @@ class FeatureAggregation(nn.Module):
         super(FeatureAggregation, self).__init__()
         self.linear1 = nn.Linear(2, h2)
         self.linear2 = nn.Linear(3, h2)
-        self.multihead_attn = nn.MultiheadAttention(attn_embed_dim, attn_num_heads, batch_first=True)
+        self.multihead_attn = nn.MultiheadAttention(attn_embed_dim, attn_num_heads, 
+                                                    batch_first=False)
         
     def forward(self, Z, Q, q_z, r):
         
@@ -83,17 +84,21 @@ class FeatureAggregation(nn.Module):
         # generate key and value by concat
         r = self.linear1(r)
         key = torch.cat((Zr,r),dim=2)
+        
+        key = torch.reshape(key, (size_q*size_k, -1))
+        #print('key',key.size())
         value = key.clone()
         
         # generate query
         q = self.linear2(Q)
         query = torch.cat((q_z,q),1)
-        query = torch.reshape(query, (size_q, 1, -1))
+        #print('query:', query.size())
+        #query = torch.reshape(query, (size_q, 1, -1))
         
         # multihead attention
         attn_output, attn_weight = self.multihead_attn(query, key, value)
         attn_output = torch.reshape(attn_output,(size_q, -1))
-        
+        #print('attn_output:', attn_output.size())
         # concat attn and q_z
         z = torch.cat((q_z, attn_output),1)
         
@@ -160,12 +165,24 @@ class ResidualLayer(nn.Module):
                
 def bilinear_interpolation_3d(Z, x, y):
     
-    c,_,_ = Z.size()
+    def adjust_array_values(arr, lower, higher):
+        # Replace values greater than 50 with 50
+        arr[arr > higher] = higher
+        # Replace values less than 0 with 0
+        arr[arr < lower] = lower
+        return arr
+
+    c, h, w = Z.size()
     # Extract grid points
     x1 = x.int()
     y1 = y.int()
     x2 = x1 + 1
     y2 = y1 + 1
+    
+    x1 = adjust_array_values(x1, 0, h-1)
+    y1 = adjust_array_values(y1, 0, w-1)
+    x2 = adjust_array_values(x2, 0, h-1)
+    y2 = adjust_array_values(y2, 0, w-1)
     
     # Extract values at the grid points
     Q11 = Z[:, x1, y1]

@@ -71,11 +71,11 @@ class Encoder(torch.nn.Module):
         x_lidar = self.lidar(x_lidar)
         x_map = self.map(x_map)
         
-        print('lidar', x_lidar.size())
-        print('map', x_map.size())
+        #print('lidar', x_lidar.size())
+        #print('map', x_map.size())
         # concat to [96,H,W]
         x = torch.cat((x_lidar, x_map), 1)
-        print('cat', x.size())
+        #print('cat', x.size())
         
         x_pyramid = OrderedDict()
         

@@ -18,8 +18,8 @@ from decoder import Decoder
 
 
 
-def train(train_dataloader, encoder, decoder, n_epochs=20, learning_rate=0.001,
-               print_every=2, plot_every=100):
+def train(train_dataloader, encoder, decoder, device, 
+          n_epochs=20, learning_rate=0.001, print_every=2, plot_every=100):
     
     start = time.time()
     plot_losses = []
@@ -33,12 +33,16 @@ def train(train_dataloader, encoder, decoder, n_epochs=20, learning_rate=0.001,
     loss_fn = occupancyflow_loss()
     
     for epoch in range(1, n_epochs + 1):
-        loss = train_epoch(train_dataloader, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fn)
+        print('==========epoch ', epoch, '===========')
+        loss = train_epoch(train_dataloader, encoder, decoder, 
+                           encoder_optimizer, decoder_optimizer, 
+                           loss_fn, device)
         print_loss_total += loss
         plot_loss_total += loss
 
         if epoch % print_every == 0:
             print_loss_avg = print_loss_total / print_every
+            print('loss;', print_loss_avg)
             print_loss_total = 0
             
         if epoch % plot_every == 0:
@@ -47,14 +51,17 @@ def train(train_dataloader, encoder, decoder, n_epochs=20, learning_rate=0.001,
             plot_loss_total = 0
     
 def train_epoch(dataloader, encoder, decoder, encoder_optimizer, 
-                decoder_optimizer, loss_fn):
+                decoder_optimizer, loss_fn, device):
  
     total_loss = 0
     for data in dataloader:
+        
+        # get data from dataloader
         L, M, Q, O, F = data
+               
+        #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
-        
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # data to gpu
         L = L.to(device)
         M = M.to(device)
         Q = Q.to(device)
@@ -62,33 +69,58 @@ def train_epoch(dataloader, encoder, decoder, encoder_optimizer,
         F = F.to(device)
         #print(L.size(), M.size(), Q.size(), O.size(), F.size())
         
+        
+        # optimizer init
         encoder_optimizer.zero_grad()
         decoder_optimizer.zero_grad()
 
+        # get feature map(Z) from encoder
         Z = encoder(L, M)
-        O_output = None
-        for z, q in zip(Z,Q):
+        
+        # output size init
+        b, q, c = Q.size()
+        O_output = torch.empty(b, q, 1).to(device)
+        F_output = torch.empty(b, q, 2).to(device)
+        
+        # decoder 
+        for i, (z, q) in enumerate(zip(Z,Q)):
+            #print('batch:', i)
             o, f = decoder(z, q)
-            o = torch.unsqueeze(o, 0)
-            f = torch.unsqueeze(f, 0)
             
+            #o = torch.unsqueeze(o, 0)
+            #f = torch.unsqueeze(f, 0)
+            
+            O_output[i,:], F_output[i,:] = o, f
+                        
+            '''
             if O_output is None :
                 O_output, F_output = o, f
             else:
                 O_output = torch.cat((O_output, o), dim=0)
                 F_output = torch.cat((F_output, f), dim=0)
+            '''
         
-        #print('O_output:', O_output.size())
+        #
             
-
+        # calculate loss
         occupancy_loss_fn, flow_loss_fn, lamda = loss_fn
+        
+        #O = torch.reshape(O, (b,-1))
+        #O_output = torch.reshape(O_output, (b,-1))
+        #print('O', O, 'O-output', O_output)
         occupancy_loss = occupancy_loss_fn(O, O_output)
         flow_loss = flow_loss_fn(F, F_output)
         
+        print('o_loss:', occupancy_loss.item())
+        print('f_loss:', flow_loss.item())
+        
+        loss = occupancy_loss+lamda*flow_loss
+        
+        # back propogation
         occupancy_loss.backward(retain_graph=True)
         flow_loss.backward()
 
-        loss = occupancy_loss+lamda*flow_loss
+        
         
         encoder_optimizer.step()
         decoder_optimizer.step()
@@ -99,7 +131,7 @@ def train_epoch(dataloader, encoder, decoder, encoder_optimizer,
 
 def occupancyflow_loss():
     
-    occupancy_loss = nn.CrossEntropyLoss()
+    occupancy_loss = nn.BCELoss()
     flow_loss = nn.MSELoss()
     flow_lamda = 0.1
     
@@ -115,7 +147,7 @@ class RandomDataset(Dataset):
         self.W = W
         
     def __len__(self):
-        return 10000
+        return 1
 
     def __getitem__(self, idx):
         
@@ -123,7 +155,7 @@ class RandomDataset(Dataset):
         L = torch.randn(self.c_lidar, self.H, self.W)
         M = torch.randn(self.c_map, self.H, self.W)
         Q = torch.randn(self.q_size,3)
-        O = torch.randn(self.q_size,1)
+        O = torch.rand(self.q_size,1)
         F = torch.randn(self.q_size,2)
         
         return L, M, Q, O, F
@@ -131,19 +163,19 @@ class RandomDataset(Dataset):
     
  
 if __name__ == '__main__':
+    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
+    torch.manual_seed(0)
     
     c_lidar = 500
     c_map = 3
     q_size = 10
-    H = 400
+    H = 100
     W = 100
     attn_num_heads = 4
     
     training_data = RandomDataset(c_lidar, c_map, q_size, H, W)
-    train_dataloader = DataLoader(training_data, batch_size=2, shuffle=True)
-    
-    
+    train_dataloader = DataLoader(training_data, batch_size=2, shuffle=True)   
     
     h1 = 16
     h2 = 8
@@ -153,4 +185,5 @@ if __name__ == '__main__':
     encoder = Encoder(c_lidar, c_map).to(device)
     decoder = Decoder(64, h1, h2, h3, h4, attn_num_heads).to(device)
     
-    train(train_dataloader, encoder, decoder, 80, print_every=5, plot_every=5)
+    train(train_dataloader, encoder, decoder, device,
+          n_epochs = 1000, print_every=1, plot_every=5)
