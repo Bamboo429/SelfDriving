@@ -68,11 +68,12 @@ class Encoder(torch.nn.Module):
         
     def forward(self, x_lidar, x_map):
         
+        #print('lidar', x_lidar)
         x_lidar = self.lidar(x_lidar)
         x_map = self.map(x_map)
-        
-        #print('lidar', x_lidar.size())
+                
         #print('map', x_map.size())
+        
         # concat to [96,H,W]
         x = torch.cat((x_lidar, x_map), 1)
         #print('cat', x.size())
@@ -123,6 +124,7 @@ class LiDAR(torch.nn.Module):
     def forward(self, x):
         
         x = self.conv1(x)
+        #print(x)
         x = self.batchnorm(x)
         x = self.relu(x)
         x = self.conv2(x)

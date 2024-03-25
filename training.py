@@ -27,8 +27,8 @@ def train(train_dataloader, encoder, decoder, device,
     plot_loss_total = 0  # Reset every plot_every
 
 
-    encoder_optimizer = optim.AdamW(encoder.parameters())
-    decoder_optimizer = optim.AdamW(decoder.parameters())
+    encoder_optimizer = optim.AdamW(encoder.parameters(), lr=learning_rate, weight_decay=0.001)
+    decoder_optimizer = optim.AdamW(decoder.parameters(), lr=learning_rate, weight_decay=0.01)
     
     loss_fn = occupancyflow_loss()
     
@@ -58,7 +58,7 @@ def train_epoch(dataloader, encoder, decoder, encoder_optimizer,
         
         # get data from dataloader
         L, M, Q, O, F = data
-               
+              
         #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # data to gpu
@@ -75,8 +75,9 @@ def train_epoch(dataloader, encoder, decoder, encoder_optimizer,
         decoder_optimizer.zero_grad()
 
         # get feature map(Z) from encoder
-        Z = encoder(L, M)
         
+        Z = encoder(L, M)
+        #print('Z:',Z)
         # output size init
         b, q, c = Q.size()
         O_output = torch.empty(b, q, 1).to(device)
@@ -84,9 +85,12 @@ def train_epoch(dataloader, encoder, decoder, encoder_optimizer,
         
         # decoder 
         for i, (z, q) in enumerate(zip(Z,Q)):
-            #print('batch:', i)
+            #print('batch:', i, z, q)
             o, f = decoder(z, q)
-            
+            #print('o',o)
+            #o_nor = torch.nn.Sigmoid()
+            #o = o_nor(o)
+            #print(o)
             #o = torch.unsqueeze(o, 0)
             #f = torch.unsqueeze(f, 0)
             
@@ -101,26 +105,29 @@ def train_epoch(dataloader, encoder, decoder, encoder_optimizer,
             '''
         
         #
-            
+          
         # calculate loss
         occupancy_loss_fn, flow_loss_fn, lamda = loss_fn
         
         #O = torch.reshape(O, (b,-1))
         #O_output = torch.reshape(O_output, (b,-1))
-        #print('O', O, 'O-output', O_output)
-        occupancy_loss = occupancy_loss_fn(O, O_output)
-        flow_loss = flow_loss_fn(F, F_output)
+      
+        occupancy_loss = occupancy_loss_fn(O_output, O)
+        flow_loss = flow_loss_fn(F_output, F)
         
+        
+        #print('O:', O)
+        #print('O-output:', O_output)
         print('o_loss:', occupancy_loss.item())
         print('f_loss:', flow_loss.item())
         
+        
         loss = occupancy_loss+lamda*flow_loss
-        
+        #loss.backward()
         # back propogation
-        occupancy_loss.backward(retain_graph=True)
-        flow_loss.backward()
-
-        
+        flow_loss.backward(retain_graph=True) 
+        occupancy_loss.backward()
+               
         
         encoder_optimizer.step()
         decoder_optimizer.step()
@@ -131,7 +138,7 @@ def train_epoch(dataloader, encoder, decoder, encoder_optimizer,
 
 def occupancyflow_loss():
     
-    occupancy_loss = nn.BCELoss()
+    occupancy_loss = nn.BCEWithLogitsLoss() #nn.BCELoss() #
     flow_loss = nn.MSELoss()
     flow_lamda = 0.1
     
@@ -146,20 +153,27 @@ class RandomDataset(Dataset):
         self.H = H
         self.W = W
         
+        self.L = torch.randn(self.c_lidar, self.H, self.W)
+        self.M = torch.randn(self.c_map, self.H, self.W)
+        self.Q = torch.randn(self.q_size,3)
+        
+        self.O = torch.randint(0,2,(self.q_size,1),dtype=torch.float) #torch.randn(self.q_size,1) #
+        self.F = torch.randn(self.q_size,2)
+        
     def __len__(self):
         return 1
 
     def __getitem__(self, idx):
         
-        
+        '''
         L = torch.randn(self.c_lidar, self.H, self.W)
         M = torch.randn(self.c_map, self.H, self.W)
         Q = torch.randn(self.q_size,3)
         O = torch.rand(self.q_size,1)
         F = torch.randn(self.q_size,2)
-        
-        return L, M, Q, O, F
- 
+        '''
+        return self.L, self.M, self.Q, self.O, self.F
+        #return L, M, Q, O, F
     
  
 if __name__ == '__main__':
@@ -169,7 +183,7 @@ if __name__ == '__main__':
     
     c_lidar = 500
     c_map = 3
-    q_size = 10
+    q_size = 20
     H = 100
     W = 100
     attn_num_heads = 4
@@ -186,4 +200,4 @@ if __name__ == '__main__':
     decoder = Decoder(64, h1, h2, h3, h4, attn_num_heads).to(device)
     
     train(train_dataloader, encoder, decoder, device,
-          n_epochs = 1000, print_every=1, plot_every=5)
+          n_epochs = 100, print_every=1, plot_every=5)
