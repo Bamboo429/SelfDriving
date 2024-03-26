@@ -16,7 +16,8 @@ import time
 from encoder import Encoder
 from decoder import Decoder
 
-
+import wandb
+wandb.init(project="self-driving")
 
 def train(train_dataloader, encoder, decoder, device, 
           n_epochs=20, learning_rate=0.001, print_every=2, plot_every=100):
@@ -25,7 +26,7 @@ def train(train_dataloader, encoder, decoder, device,
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
-
+    print_acc_total = 0
 
     encoder_optimizer = optim.AdamW(encoder.parameters(), lr=learning_rate, weight_decay=0.001)
     decoder_optimizer = optim.AdamW(decoder.parameters(), lr=learning_rate, weight_decay=0.01)
@@ -34,26 +35,30 @@ def train(train_dataloader, encoder, decoder, device,
     
     for epoch in range(1, n_epochs + 1):
         print('==========epoch ', epoch, '===========')
-        loss = train_epoch(train_dataloader, encoder, decoder, 
+        acc, loss = train_epoch(train_dataloader, encoder, decoder, 
                            encoder_optimizer, decoder_optimizer, 
                            loss_fn, device)
         print_loss_total += loss
         plot_loss_total += loss
-
+        print_acc_total += acc
+        
         if epoch % print_every == 0:
             print_loss_avg = print_loss_total / print_every
+            print_acc_avg = print_acc_total / print_every
             print('loss;', print_loss_avg)
-            print_loss_total = 0
+            print('accuracy:', acc, '%')
             
-        if epoch % plot_every == 0:
-            plot_loss_avg = plot_loss_total / plot_every
-            plot_losses.append(plot_loss_avg)
-            plot_loss_total = 0
+            wandb.log({'epcsh':epoch, 'loss': print_loss_avg, 'acc':print_acc_avg})
+            
+            print_loss_total = 0
+            print_acc_total = 0
+            
     
 def train_epoch(dataloader, encoder, decoder, encoder_optimizer, 
                 decoder_optimizer, loss_fn, device):
  
     total_loss = 0
+    total_acc = 0
     for data in dataloader:
         
         # get data from dataloader
@@ -79,9 +84,9 @@ def train_epoch(dataloader, encoder, decoder, encoder_optimizer,
         Z = encoder(L, M)
         #print('Z:',Z)
         # output size init
-        b, q, c = Q.size()
-        O_output = torch.empty(b, q, 1).to(device)
-        F_output = torch.empty(b, q, 2).to(device)
+        num_b, num_q, num_c = Q.size()
+        O_output = torch.empty(num_b, num_q, 1).to(device)
+        F_output = torch.empty(num_b, num_q, 2).to(device)
         
         # decoder 
         for i, (z, q) in enumerate(zip(Z,Q)):
@@ -118,23 +123,33 @@ def train_epoch(dataloader, encoder, decoder, encoder_optimizer,
         
         #print('O:', O)
         #print('O-output:', O_output)
-        print('o_loss:', occupancy_loss.item())
-        print('f_loss:', flow_loss.item())
+        #print('o_loss:', occupancy_loss.item())
+        #print('f_loss:', flow_loss.item())
         
         
         loss = occupancy_loss+lamda*flow_loss
-        #loss.backward()
+       
         # back propogation
         flow_loss.backward(retain_graph=True) 
-        occupancy_loss.backward()
-               
+        occupancy_loss.backward()           
         
         encoder_optimizer.step()
         decoder_optimizer.step()
 
+        # calculate loss
         total_loss += loss.item()
-
-    return total_loss / len(dataloader)
+        
+        # calculate accuracy
+        o_nor = torch.nn.Sigmoid()
+        O_prob = o_nor(O_output)
+        O_prob[O_prob>=0.5] = 1
+        O_prob[O_prob<0.5] = 0
+        acc = 100*(torch.sum(O_prob==O).item()/num_q)
+        
+        total_acc += acc 
+        #print('accuracy:', acc)
+        
+    return total_acc/len(dataloader), total_loss / len(dataloader)
 
 def occupancyflow_loss():
     
@@ -175,7 +190,8 @@ class RandomDataset(Dataset):
         return self.L, self.M, self.Q, self.O, self.F
         #return L, M, Q, O, F
     
- 
+
+
 if __name__ == '__main__':
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
@@ -183,13 +199,13 @@ if __name__ == '__main__':
     
     c_lidar = 500
     c_map = 3
-    q_size = 20
+    q_size = 50
     H = 100
     W = 100
     attn_num_heads = 4
     
     training_data = RandomDataset(c_lidar, c_map, q_size, H, W)
-    train_dataloader = DataLoader(training_data, batch_size=2, shuffle=True)   
+    train_dataloader = DataLoader(training_data, batch_size=20, shuffle=True)   
     
     h1 = 16
     h2 = 8
@@ -199,5 +215,9 @@ if __name__ == '__main__':
     encoder = Encoder(c_lidar, c_map).to(device)
     decoder = Decoder(64, h1, h2, h3, h4, attn_num_heads).to(device)
     
+    
+    
     train(train_dataloader, encoder, decoder, device,
           n_epochs = 100, print_every=1, plot_every=5)
+    
+    

@@ -1,0 +1,68 @@
+{
+    "os": "Linux-4.15.0-213-generic-x86_64-with-glibc2.10",
+    "python": "3.8.18",
+    "heartbeatAt": "2024-03-26T18:46:47.787631",
+    "startedAt": "2024-03-26T18:46:47.327042",
+    "docker": null,
+    "cuda": "9.0.176",
+    "args": [],
+    "state": "running",
+    "program": "/home/users/tracylin/Documents/SelfDriving/training.py",
+    "codePathLocal": "training.py",
+    "codePath": "training.py",
+    "git": {
+        "remote": "git@github.com:Bamboo429/SelfDriving.git",
+        "commit": "6a10509ae625b0b65c8ad741c8e04f831150e48f"
+    },
+    "email": "bambo429@gmail.com",
+    "root": "/home/users/tracylin/Documents/SelfDriving",
+    "host": "fuxi",
+    "username": "tracylin",
+    "executable": "/drives/fuxi1/users/tracylin/anaconda3/envs/spyder-env/bin/python",
+    "cpu_count": 4,
+    "cpu_count_logical": 4,
+    "cpu_freq": {
+        "current": 1591.16075,
+        "min": 800.0,
+        "max": 3900.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 1600.015,
+            "min": 800.0,
+            "max": 3900.0
+        },
+        {
+            "current": 1594.81,
+            "min": 800.0,
+            "max": 3900.0
+        },
+        {
+            "current": 1575.785,
+            "min": 800.0,
+            "max": 3900.0
+        },
+        {
+            "current": 1594.033,
+            "min": 800.0,
+            "max": 3900.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 17.795162200927734,
+            "used": 4.149738311767578
+        }
+    },
+    "gpu": "NVIDIA GeForce RTX 3090",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce RTX 3090",
+            "memory_total": 25769803776
+        }
+    ],
+    "memory": {
+        "total": 15.615615844726562
+    }
+}
